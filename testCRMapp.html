@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM Complaints</title>
+<style>
+:root{--o:#f60;--od:#e65500;--os:#fff2ea;--ink:#222;--mut:#6b7280;--line:#dcdfe4;--bg:#f9f9f9;--err:#d93025;--ok:#1b8f5a;--blue:#2563eb}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:flex-start;justify-content:flex-end;padding:80px 40px;background:var(--bg);font:14px/1.45 Arial,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.app{position:relative;width:100%;max-width:400px;height:680px;background:#fff;border-radius:15px;box-shadow:0 0 12px #0000001a;overflow:hidden}
+.view{position:absolute;inset:0;display:flex;flex-direction:column}
+.hide{display:none!important}
+button{font:inherit;cursor:pointer;border:0}
+/* login */
+.login{padding:0 25px;justify-content:center}
+.logo{width:46px;height:46px;border-radius:13px;background:var(--o);color:#fff;font:700 22px Arial;display:grid;place-items:center;box-shadow:0 6px 14px #ff66004d}
+.login h1{font-size:22px;margin:18px 0 4px}.login p{margin:0 0 26px;color:var(--mut)}
+/* fields */
+.f{margin-bottom:16px}
+.f>label{display:block;font-size:13px;font-weight:700;color:#444;margin-bottom:6px}
+.f>label b{color:var(--err)}
+input,select,textarea{width:100%;padding:10px 12px;font:15px Arial,sans-serif;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;transition:.15s;text-overflow:ellipsis}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--o);box-shadow:0 0 0 3px #ff660024}
+textarea{resize:none;height:104px}
+input[type=file]{padding:8px;font-size:13px}
+.f.bad input,.f.bad select,.f.bad textarea{border-color:var(--err)}
+.f .em{display:none;color:var(--err);font-size:12px;margin-top:4px}.f.bad .em{display:block}
+.pw{position:relative}.pw button{position:absolute;right:6px;top:6px;background:none;color:var(--mut);font-size:12px;padding:6px 8px}
+.row{display:flex;gap:8px}.row>input{flex:1}
+.btn{background:var(--o);color:#fff;font-weight:700;border-radius:10px;padding:12px 16px;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:hover{background:var(--od)}.btn:disabled{opacity:.6;cursor:default}
+.btn.full{width:100%;padding:14px;font-size:16px}
+.btn.sm{padding:10px 14px;font-size:14px}
+.btn.ghost{background:var(--os);color:var(--o)}.btn.ghost:hover{background:#ffe2d0}
+.btn.red{background:var(--err)}.btn.dark{background:#333}
+.sp{width:15px;height:15px;border:2px solid #fff7;border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;display:inline-block}
+.ghost .sp{border-color:#ff66004d;border-top-color:var(--o)}
+@keyframes s{to{transform:rotate(360deg)}}
+/* main */
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 25px 14px}
+header .b{display:flex;gap:12px;align-items:center}header .logo{width:38px;height:38px;font-size:18px;border-radius:11px}
+header h1{font-size:17px;margin:0}header small{color:var(--mut);font-size:12px}
+.link{background:none;color:var(--o);font-size:13px;padding:6px 0}.link:hover{text-decoration:underline}
+.tabs{display:flex;margin:0 25px;border-bottom:2px solid #eee}
+.tab{flex:1;background:none;padding:11px 4px;font-weight:700;font-size:14px;color:#8a8f98;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tab:hover{color:var(--o)}.tab.on{color:var(--o);border-color:var(--o)}
+main{flex:1;overflow-y:auto;padding:20px 25px}
+.pane{display:none}.pane.on{display:block}
+.sec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--o);margin:6px 0 12px;display:flex;align-items:center;gap:10px}
+.sec:after{content:"";flex:1;height:1px;background:#eee}
+.chip{background:var(--os);border-radius:8px;padding:9px 12px;font-size:13px;margin:-4px 0 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.foot{padding:14px 25px 18px;border-top:1px solid #eee}
+/* view tab */
+.seg{display:flex;background:#f1f2f4;border-radius:10px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;background:none;padding:8px;border-radius:8px;font-weight:700;font-size:13px;color:var(--mut)}
+.seg button.on{background:#fff;color:var(--o);box-shadow:0 1px 3px #0001}
+.item{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:.15s}
+.item:hover{border-color:var(--o);background:var(--os)}
+.empty{text-align:center;color:var(--mut);padding:40px 10px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#fff0e6;color:var(--o)}
+.badge.ip{background:#e8f0fe;color:var(--blue)}.badge.cl{background:#e6f6ee;color:var(--ok)}
+.dh{display:flex;justify-content:space-between;align-items:center;margin:2px 0 4px}.dh h2{margin:0;font-size:18px}
+.sla{font-size:12px;color:var(--mut);margin-bottom:12px}.sla.late{color:var(--err);font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#fafafa;border-radius:10px;padding:14px;margin-bottom:14px}
+.grid div small{display:block;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.grid div{word-break:break-word;font-size:13px}.grid .w{grid-column:1/3}
+.box{border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;white-space:pre-wrap}
+.h3{font-size:13px;font-weight:700;margin:0 0 8px}
+.tl{border-left:2px solid #eee;margin-left:6px;padding-left:14px}
+.tl .st{position:relative;margin-bottom:14px;font-size:13px}.tl .st:before{content:"";position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--o);border:2px solid #fff;box-shadow:0 0 0 1px var(--o)}
+.tl .st.done:before{background:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.tl small{color:var(--mut);display:block}.act{background:#fafafa;border-radius:8px;padding:8px 10px;margin-top:6px}
+.note{border-left:3px solid var(--o);background:#fafafa;border-radius:4px 8px 8px 4px;padding:8px 12px;margin-bottom:8px;font-size:13px}
+.note small{display:flex;justify-content:space-between;color:var(--mut);margin-bottom:3px}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.thumbs img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.acts{display:flex;gap:8px;margin:6px 0 18px}.acts .btn{flex:1}
+/* overlays */
+.ov{position:absolute;inset:0;background:#0007;z-index:5;display:flex;align-items:flex-end}
+.sheet{background:#fff;width:100%;max-height:92%;overflow-y:auto;border-radius:18px 18px 0 0;padding:22px 25px 25px}
+.sheet h3{margin:0 0 4px;font-size:17px}.sheet .sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+.sheet .row{margin-top:6px}.sheet .row .btn{flex:1}
+table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+th,td{border-bottom:1px solid #eee;padding:7px 4px;text-align:left}th{color:var(--mut);font-size:11px;text-transform:uppercase}
+td select{padding:3px;width:auto;font-size:12px}td input{width:auto}
+.toast{position:absolute;left:50%;bottom:90px;transform:translate(-50%,20px);background:#222;color:#fff;padding:11px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:9;max-width:88%;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}.toast.ok{background:var(--ok)}.toast.err{background:var(--err)}
+input[type=radio]{width:auto;margin:0}
+.tinfo{display:grid;grid-template-columns:.9fr 1fr 1.5fr;gap:8px;background:#fafafa;border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:18px;position:relative}
+.tinfo small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}.tinfo b{font-size:13px;word-break:break-all}
+.tinfo .link{grid-column:1/4;text-align:right;font-size:12px;padding:0;margin-top:-2px}
+.f.auto>label:after{content:"Auto-filled";margin-left:8px;font-size:10px;font-weight:700;color:var(--ok);background:#e6f6ee;padding:2px 7px;border-radius:10px}
+.f.auto input,.f.auto select,.f.auto textarea{background:#fffaf6}
+.opt{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;font-weight:700}
+.opt:has(input:checked){border-color:var(--o);background:var(--os)}
+@media (max-width:768px){body{justify-content:center;padding:40px 20px}.app{max-width:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- LOGIN (only screen before sign-in) -->
+  <section class="view login" id="loginView">
+    <div class="logo">C</div>
+    <h1>Welcome back</h1><p>Sign in to manage CRM complaints.</p>
+    <div class="f"><label>Username</label><input id="user" autocomplete="username" placeholder="Enter username"></div>
+    <div class="f"><label>Password</label>
+      <div class="pw"><input id="pass" type="password" autocomplete="current-password" placeholder="Enter password"><button type="button" id="eye">Show</button></div>
+      <div class="em" id="loginErr"></div></div>
+    <button class="btn full" id="loginBtn">Login</button>
+  </section>
+
+  <!-- MAIN (2 tabs) -->
+  <section class="view hide" id="mainView">
+    <header>
+      <div class="b"><div class="logo">C</div><div><h1>CRM Complaints</h1><small id="who"></small></div></div>
+      <button class="link" id="logout">Logout</button>
+    </header>
+    <nav class="tabs">
+      <button class="tab on" data-t="reg">Register Complaint</button>
+      <button class="tab" data-t="view">View Complaint</button>
+    </nav>
+    <main>
+      <!-- REGISTER -->
+      <div class="pane on" id="p-reg">
+        <div class="tinfo" id="tinfo"><div><small>Ticket ID</small><b id="tId">—</b></div><div><small>Agent ID</small><b id="aId">—</b></div><div><small>Agent</small><b id="aName">—</b></div>
+          <button class="link" id="refill" title="Fill the form again from the ticket">↻ Re-fill from ticket</button></div>
+        <div class="sec">Customer</div>
+        <div class="f hide" id="refF"><label>Ticket / Reference No</label><input id="refNo" placeholder="Enter ticket ID"></div>
+        <div class="f"><label>E-Commerce Order No</label>
+          <div class="row"><input id="orderNo" placeholder="Enter order number"><button class="btn ghost sm" id="orderBtn">Search</button></div></div>
+        <div class="chip hide" id="orderInfo"></div>
+        <div class="f"><label>Mobile <b>*</b></label><input id="mobile" inputmode="tel" placeholder="e.g. 971501234567"><div class="em">Mobile is required</div></div>
+        <div class="f"><label>Customer Name <b>*</b></label><input id="custName" placeholder="Full name"><div class="em">Name is required</div></div>
+        <div class="f"><label>Email</label><input id="email" type="email" placeholder="name@example.com"></div>
+        <div class="f"><label>Address</label><input id="address" placeholder="Enter address"></div>
+
+        <div class="sec">Complaint</div>
+        <div class="f"><label>Complaint Mode <b>*</b></label><select id="mode"><option value="">--Select--</option></select><div class="em">Select a mode</div></div>
+        <div class="f"><label>Complaint Type <b>*</b></label><select id="type"><option value="">--Select--</option></select><div class="em">Select a type</div></div>
+        <div class="f hide" id="s1w"><label>Sub Type - Level 1 <b>*</b></label><select id="s1"></select><div class="em">Select a sub type</div></div>
+        <div class="f hide" id="s2w"><label>Sub Type - Level 2 <b>*</b></label><select id="s2"></select><div class="em">Select a sub type</div></div>
+        <div class="chip hide" id="pickW"><span id="pickInfo">No items selected</span><button class="link" id="pickBtn">Select items</button></div>
+        <div class="f"><label>Description <b>*</b></label><textarea id="desc" placeholder="Describe the complaint in detail..."></textarea><div class="em">Description is required</div></div>
+        <div class="f"><label>Attachments</label><input type="file" id="files" multiple><div class="chip hide" id="tfiles" style="margin:8px 0 0"></div></div>
+
+        <div class="sec">Assignment</div>
+        <div class="f"><label>Assign to Department <small style="color:#999;font-weight:400">(optional)</small></label><select id="dept"><option value="">-- None --</option></select></div>
+        <div class="f hide" id="refW"><label>Refund Status <b>*</b></label><select id="refund"><option value="">-- Select --</option></select><div class="em">Select a refund status</div></div>
+      </div>
+
+      <!-- VIEW -->
+      <div class="pane" id="p-view">
+        <div id="vSearch">
+          <div class="seg" id="seg"><button class="on" data-m="id">Complaint ID</button><button data-m="ref">Ticket No</button></div>
+          <div class="row"><input id="q" placeholder="Enter complaint ID"><button class="btn sm" id="findBtn">Search</button></div>
+        </div>
+        <div id="results" style="margin-top:16px"><div class="empty">Search by complaint ID or ticket number to view details.</div></div>
+        <div id="detail" class="hide"></div>
+      </div>
+    </main>
+    <div class="foot" id="regFoot"><button class="btn full" id="submit">Submit Complaint</button></div>
+  </section>
+
+  <!-- order items -->
+  <div class="ov hide" id="ov"><div class="sheet">
+    <h3>Select order items</h3><div class="sub" id="ovSub"></div><div id="ovBody"></div>
+    <div class="row" style="align-items:center;margin-top:12px"><b id="total" style="flex:1">Total: 0.00</b></div>
+    <div class="row" style="margin-top:12px"><button class="btn ghost" id="ovCancel">Cancel</button><button class="btn" id="ovOk">Confirm</button></div>
+  </div></div>
+  <!-- close / reopen -->
+  <div class="ov hide" id="sheetOv"><div class="sheet" id="sheet"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script type="module">
+/* Yellow.ai YApps SDK - available only when the app runs inside Yellow.ai */
+try { const m = await import('https://cdn.yellowmessenger.com/yapps-sdk/v1.0.0/widget.js'); window.yApp = new m.YAppWidget(); }
+catch (e) { console.warn('YApps SDK not available - running standalone', e); window.yAppFailed = true; }
+</script>
+<script>
+/* ===== CONFIG: fill these in ===== */
+const CFG = {
+  BASE_URL: 'https://apistg.lulumea.com/lulu/crm/1.0',
+  API_KEY: '4264ce30-9e7a-4381-afbe-93e797573275',
+  // If your Yellow.ai custom-field names are unusual, list them here (exact field name). Common names are already detected.
+  CF_KEYS: { /* order: ['cf_order_number'], mobile: ['cf_mobile'], name: [], email: [], address: [], mode: [], type: [], sub1: [], sub2: [], desc: [], dept: [], refund: [], file: [] */ }
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = d => { const t = d && new Date(d); return t && !isNaN(t) ? t.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—'; };
+let token = localStorage.getItem('crmAccessToken') || '', user = localStorage.getItem('crmUser') || '';
+let agent = JSON.parse(localStorage.getItem('crmAgent') || 'null') || { id: user, site: '', name: user };
+let subTypes = [], ecomTypeId = '', order = null, picked = [], pkgItems = [], depts = [], rcas = null, lvl1 = [], cur = null, vmode = 'id', loaded = false;
+
+/* ---------- helpers ---------- */
+function toast(m, t) { const e = $('toast'); e.textContent = m; e.className = 'toast show ' + (t || ''); clearTimeout(toast.h); toast.h = setTimeout(() => e.className = 'toast', 3600); }
+function busy(b, on) { if (on) { b.dataset.l = b.innerHTML; b.innerHTML = '<i class="sp"></i>'; b.disabled = true; } else { b.innerHTML = b.dataset.l || b.innerHTML; b.disabled = false; } }
+async function api(method, path, body) {
+  const url = CFG.BASE_URL + path + (path.includes('?') ? '&' : '?') + 'apiKey=' + encodeURIComponent(CFG.API_KEY);
+  const headers = {}; let payload;
+  if (token) headers.Authorization = 'Bearer ' + token;
+  if (body instanceof FormData) payload = body; else if (body) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
+  const r = await fetch(url, { method, headers, body: payload });
+  if (r.status === 401 || r.status === 440) { logout(true); throw new Error('expired'); }
+  if (!r.ok) { let m = ''; try { m = (await r.json()).message; } catch (e) {} throw new Error(m || 'HTTP ' + r.status); }
+  return r.json();
+}
+const bad = (id, on) => $(id).closest('.f').classList.toggle('bad', on);
+function fill(sel, items, v, t, ph) { sel.innerHTML = `<option value="">${ph || '--Select--'}</option>` + items.map(i => `<option value="${esc(i[v])}">${esc(i[t])}</option>`).join(''); }
+
+/* ---------- auth ---------- */
+function render() {
+  const authed = !!token;
+  $('loginView').classList.toggle('hide', authed); $('mainView').classList.toggle('hide', !authed);
+  if (authed) { $('who').textContent = agent.name ? 'Signed in as ' + agent.name : ''; renderCtx(); if (!loaded) { loaded = true; loadLookups(); } }
+}
+function logout(expired) {
+  token = ''; localStorage.removeItem('crmAccessToken'); loaded = false; render();
+  if (expired === true) $('loginErr').textContent = 'Session expired. Please log in again.', bad('pass', true);
+}
+$('logout').onclick = () => logout();
+$('eye').onclick = () => { const p = $('pass'), s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('eye').textContent = s ? 'Hide' : 'Show'; };
+async function login() {
+  const u = $('user').value.trim(), p = $('pass').value;
+  bad('pass', false);
+  if (!u || !p) { $('loginErr').textContent = 'Please enter username and password'; return bad('pass', true); }
+  busy($('loginBtn'), true);
+  try {
+    const r = await fetch(CFG.BASE_URL + '/api/crm/checkIfUserLogin?apiKey=' + encodeURIComponent(CFG.API_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ UserName: u, Password: p })
+    }).then(r => r.json());
+    const t = r?.userDetails?.access_token;
+    if (r.status && t) {
+      const ud = r.userDetails; token = t; user = u;
+      agent = { id: ud.employeeID || u, site: ud.siteID || '', name: ud.displayName || u };
+      localStorage.setItem('crmAccessToken', t); localStorage.setItem('crmUser', u); localStorage.setItem('crmAgent', JSON.stringify(agent));
+      $('pass').value = ''; render();
+    }
+    else { $('loginErr').textContent = r.message || 'Invalid credentials'; bad('pass', true); }
+  } catch (e) { $('loginErr').textContent = 'Login failed. Please try again.'; bad('pass', true); }
+  busy($('loginBtn'), false);
+}
+$('loginBtn').onclick = login;
+['user', 'pass'].forEach(i => $(i).addEventListener('keydown', e => e.key === 'Enter' && login()));
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t.dataset.t));
+  $('regFoot').classList.toggle('hide', t.dataset.t !== 'reg');
+});
+const gotoTab = n => document.querySelector(`.tab[data-t="${n}"]`).click();
+
+/* ---------- lookups ---------- */
+function loadLookups() {
+  const ps = [
+    api('GET', '/api/ext/crm/getComplaintTypesWithSubtypes').then(t => {
+      const eco = t.status && t.data && t.data.find(i => i.compType === 'E Commerce');
+      if (eco) { ecomTypeId = eco.compTypeId; subTypes = eco.subTypes || []; fillTypes(); }
+    }).catch(() => toast('Could not load complaint types', 'err')),
+    api('GET', '/api/ext/crm/getComplaintModes').then(m => {
+      if (!m.status) return;
+      fill($('mode'), m.data.filter(x => ['complaint', 'request'].includes((x.compMode || '').toLowerCase())), 'compModeId', 'compMode');
+      $('mode').value = '1'; fillTypes();
+    }).catch(() => {}),
+    api('GET', '/api/ext/crm/getComplaintDepatments').then(d => {
+      if (!d.status) return;
+      depts = d.data.filter(x => x.compDep && x.compDep.startsWith('Ecom') && x.compDep !== 'Ecom Contact Center');
+      fill($('dept'), depts, 'compDepId', 'compDep', '-- None --');
+    }).catch(() => {}),
+    api('GET', '/api/ext/crm/getEcomStatuses').then(s => { if (Array.isArray(s.data)) fill($('refund'), s.data, 'refundSatusID', 'refundStatus', '-- Select --'); }).catch(() => {})
+  ];
+  Promise.allSettled(ps).then(() => applyAutofill());
+}
+
+/* ---------- Yellow.ai (YApps SDK): ticket, agent and custom fields ---------- */
+const YC = { ticketId: '', agentId: '', agentName: '', agentEmail: '', cf: {}, files: [] };
+const nk = k => String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+const str = x => x == null ? '' : String(x);
+function dig(o, keys, d = 5) {
+  if (!o || typeof o !== 'object' || d < 0) return;
+  for (const k of Object.keys(o)) if (keys.includes(nk(k)) && o[k] != null && typeof o[k] !== 'object') return o[k];
+  for (const k of Object.keys(o)) { const v = dig(o[k], keys, d - 1); if (v != null) return v; }
+}
+function findObj(o, key, d = 6) {
+  if (!o || typeof o !== 'object' || d < 0) return;
+  for (const k of Object.keys(o)) if (nk(k) === key && o[k] && typeof o[k] === 'object') return o[k];
+  for (const k of Object.keys(o)) { const v = findObj(o[k], key, d - 1); if (v) return v; }
+}
+function flat(x) {            // custom fields may be {key:value} or [{name,value}]
+  const m = {};
+  (function walk(o) {
+    if (Array.isArray(o)) return o.forEach(i => { if (i && typeof i === 'object' && 'value' in i && (i.name || i.key || i.label || i.id)) m[nk(i.name || i.key || i.label || i.id)] = i.value; else walk(i); });
+    if (o && typeof o === 'object') Object.keys(o).forEach(k => { const v = o[k]; if (v && typeof v === 'object') walk(v); else m[nk(k)] = v; });
+  })(x);
+  return m;
+}
+const CF_DEFAULT = {
+  order: ['ecommerceordernumber', 'ordernumber', 'orderno', 'orderid', 'orders', 'order', 'ecomorder'],
+  mobile: ['mobile', 'mobilenumber', 'mobileno', 'phone', 'phonenumber', 'phoneno', 'contactnumber', 'customermobile', 'customerphone'],
+  name: ['customername', 'fullname', 'customer', 'name'], email: ['customeremail', 'emailid', 'emailaddress', 'email'],
+  address: ['customeraddress', 'deliveryaddress', 'shippingaddress', 'address'], mode: ['complaintmode', 'mode'], type: ['complainttype', 'type'],
+  sub1: ['subtypelevel1', 'subtype1', 'complaintsubtype', 'subtype'], sub2: ['subtypelevel2', 'subtype2'],
+  desc: ['complaintdescription', 'description', 'details', 'issue'], dept: ['assigntodepartment', 'assigndepartment', 'department', 'dept'],
+  refund: ['refundstatus'], file: ['fileupload', 'fileurls', 'fileurl', 'attachments', 'attachment', 'file']
+};
+function cfGet(field) {
+  for (const k of [...(CFG.CF_KEYS[field] || []).map(nk), ...CF_DEFAULT[field]]) {
+    let v = YC.cf[k]; if (v && typeof v === 'object' && !Array.isArray(v)) v = v.value ?? v.label;
+    if (Array.isArray(v)) v = v.join(',');
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+}
+const parseList = v => [...new Set(String(v || '').split(/[,;|\n]+|\s{2,}/).map(x => x.trim()).filter(Boolean))];
+async function initYellow() {
+  const t0 = Date.now();
+  while (!window.yApp && !window.yAppFailed && Date.now() - t0 < 5000) await new Promise(r => setTimeout(r, 100));
+  const y = window.yApp;
+  if (y) {
+    const un = r => r && (r.eventResponse && r.eventResponse.eventData || r.data) || r;
+    const R = await Promise.allSettled([y.getTicket && y.getTicket(), y.getAgent && y.getAgent(), y.getTicketCF && y.getTicketCF(), y.ask && y.ask('ask_ticket_cf_info')]);
+    const v = p => p.status === 'fulfilled' ? un(p.value) : null;
+    const tk = v(R[0]), ag = v(R[1]), cf = v(R[2]), ask = v(R[3]);
+    console.log('[YApps] ticket / agent / customFields / ask:', tk, ag, cf, ask);
+    YC.ticketId = str(dig(tk, ['ticketid', 'ticketnumber', 'displayid']) ?? dig(ask, ['ticketid']) ?? dig(tk, ['id']));
+    YC.agentId = str(dig(ag, ['agentid', 'userid', 'uid', 'employeeid', 'id']));
+    const fn = dig(ag, ['firstname']), ln = dig(ag, ['lastname']);
+    YC.agentName = str(dig(ag, ['displayname', 'fullname', 'agentname', 'name']) || [fn, ln].filter(Boolean).join(' '));
+    YC.agentEmail = str(dig(ag, ['email', 'emailid', 'agentemail']));
+    YC.cf = Object.assign({}, flat(findObj(ask, 'customfields') || ask), flat(findObj(cf, 'customfields') || cf));
+  }
+  renderCtx();
+}
+function renderCtx() {
+  $('tId').textContent = YC.ticketId || '—';
+  $('aId').textContent = YC.agentId || '—';
+  $('aName').textContent = YC.agentName || YC.agentEmail || agent.name || '—';
+  $('aName').title = YC.agentEmail || '';
+  $('refF').classList.toggle('hide', !!YC.ticketId);
+}
+const refVal = () => YC.ticketId || $('refNo').value.trim();
+const markAuto = id => $(id).closest('.f').classList.add('auto');
+document.addEventListener('input', e => { const f = e.target.closest && e.target.closest('.f.auto'); if (f) f.classList.remove('auto'); });
+document.addEventListener('change', e => { const f = e.target.closest && e.target.closest('.f.auto'); if (f && !prefilling) f.classList.remove('auto'); });
+function selectMatch(sel, val) {
+  if (!val) return false; const n = nk(val);
+  const o = [...sel.options].find(x => x.value && (x.value === val || nk(x.text) === n)) || [...sel.options].find(x => x.value && nk(x.text).includes(n));
+  if (!o) return false; sel.value = o.value; sel.dispatchEvent(new Event('change')); markAuto(sel.id); bad(sel.id, false); return true;
+}
+function chooseOrder(list) {
+  return new Promise(res => {
+    $('sheet').innerHTML = `<h3>Multiple orders found</h3><div class="sub">This ticket has ${list.length} orders. Select the one for this complaint.</div>
+      ${list.map((o, i) => `<label class="opt"><input type="radio" name="ord" value="${esc(o)}" ${i ? '' : 'checked'}><span>${esc(o)}</span></label>`).join('')}
+      <div class="row" style="margin-top:12px"><button class="btn" id="ordOk">Use this order</button></div>`;
+    $('sheetOv').classList.remove('hide');
+    $('ordOk').onclick = () => { const x = document.querySelector('input[name=ord]:checked').value; $('sheetOv').classList.add('hide'); res(x); };
+  });
+}
+async function applyAutofill() {
+  await yReady; renderCtx(); prefilling = true; let n = 0;
+  try {
+    const put = (id, val) => { if (val) { $(id).value = val; markAuto(id); bad(id, false); n++; } };
+    put('mobile', cfGet('mobile')); put('custName', cfGet('name')); put('email', cfGet('email')); put('address', cfGet('address'));
+    if (selectMatch($('mode'), cfGet('mode'))) n++;
+    if (selectMatch($('type'), cfGet('type'))) { n++; if (selectMatch($('s1'), cfGet('sub1'))) selectMatch($('s2'), cfGet('sub2')); }
+    put('desc', cfGet('desc'));
+    if (selectMatch($('dept'), cfGet('dept'))) { n++; selectMatch($('refund'), cfGet('refund')); }
+    YC.files = parseList(cfGet('file')).filter(u => /^https?:/i.test(u));
+    if (YC.files.length) { $('tfiles').innerHTML = '📎 From ticket: ' + YC.files.map(u => esc(decodeURIComponent(u.split('?')[0].split('/').pop()) || 'file')).join(', '); $('tfiles').classList.remove('hide'); n++; }
+    const orders = parseList(cfGet('order'));
+    if (orders.length) {
+      const pick = orders.length > 1 ? await chooseOrder(orders) : orders[0];
+      $('orderNo').value = pick; markAuto('orderNo'); n++;
+      await searchOrder();
+    }
+  } finally { prefilling = false; }
+  if (n) toast('Form auto-filled from the ticket', 'ok');
+}
+async function collectFiles() {
+  const out = [...$('files').files];
+  for (const u of YC.files) {
+    try { const b = await (await fetch(u)).blob(); out.push(new File([b], decodeURIComponent(u.split('?')[0].split('/').pop()) || 'attachment', { type: b.type })); } catch (e) { console.warn('Could not fetch ticket file', u); }
+  }
+  return out;
+}
+$('refill').onclick = () => applyAutofill();
+const yReady = initYellow();
+
+/* ---------- register: type cascade ---------- */
+function fillTypes() {
+  const mid = parseInt($('mode').value) || 1;
+  fill($('type'), subTypes.filter(s => s.compModeId === mid), 'compSubTypeId', 'compSubType');
+  ['s1w', 's2w', 'pickW'].forEach(i => $(i).classList.add('hide'));
+}
+const root = () => subTypes.find(s => s.compSubTypeId == $('type').value);
+const needsOrder = () => { const r = root(); return !!(r && r.attributesMapping && r.attributesMapping.some(m => m.attribute.attributeName === 'E-commerce Order Number')); };
+let prefilling = false;
+function leaf() { $('pickW').classList.toggle('hide', !needsOrder()); if (needsOrder() && !prefilling) openOrder(); }
+$('mode').onchange = fillTypes;
+$('type').onchange = () => {
+  bad('type', false); $('s2w').classList.add('hide'); $('pickW').classList.add('hide');
+  const r = root(); lvl1 = r ? (r.childSubtypes || []) : [];
+  if (lvl1.length) { fill($('s1'), lvl1, 'compSubTypeId', 'compSubType'); $('s1w').classList.remove('hide'); }
+  else { $('s1w').classList.add('hide'); if (r) leaf(); }
+};
+$('s1').onchange = () => {
+  bad('s1', false); $('pickW').classList.add('hide');
+  const c = lvl1.find(x => x.compSubTypeId == $('s1').value), kids = c ? (c.childSubtypes || []) : [];
+  if (kids.length) { fill($('s2'), kids, 'compSubTypeId', 'compSubType'); $('s2w').classList.remove('hide'); }
+  else { $('s2w').classList.add('hide'); if (c) leaf(); }
+};
+$('s2').onchange = () => { bad('s2', false); if ($('s2').value) leaf(); };
+$('dept').onchange = () => $('refW').classList.toggle('hide', !$('dept').value);
+['mobile', 'custName', 'desc', 'mode', 'refund'].forEach(i => $(i).addEventListener('input', () => bad(i, false)));
+
+/* ---------- order search / items ---------- */
+const fmtAddr = a => { if (!a) return ''; if (typeof a === 'string') return a; const ks = ['addressLine1', 'address1', 'line1', 'street', 'addressLine2', 'address2', 'area', 'city', 'state', 'country', 'zipCode', 'postalCode'];
+  const v = ks.map(k => a[k]).filter(x => x && typeof x !== 'object'); return (v.length ? v : Object.values(a).filter(x => x && typeof x !== 'object')).join(', '); };
+async function searchOrder() {
+  const no = $('orderNo').value.trim(); if (!no) return false;
+  busy($('orderBtn'), true); let ok = false;
+  try {
+    const r = await api('GET', '/api/ext/crm/getEcomOrderDetail?orderNo=' + encodeURIComponent(no));
+    if (r.status && r.data) {
+      order = r.data; ok = true;
+      const put = (id, v) => { if (v) { $(id).value = v; markAuto(id); bad(id, false); } };
+      put('mobile', order.phone && String(order.phone).replace('+', '')); put('custName', order.customerName); put('email', order.emailId);
+      put('address', fmtAddr(order.shippingAddress || order.deliveryAddress || order.address || order.customerAddress || order.billingAddress));
+      $('orderInfo').innerHTML = `<span><b>#${esc(order.orderNumber)}</b> · ${esc(order.orderStatus && order.orderStatus.label)}</span><span>${(order.packages || []).length} pkg</span>`;
+      $('orderInfo').classList.remove('hide'); toast('Order found', 'ok');
+    } else { order = null; $('orderInfo').classList.add('hide'); toast('Order not found', 'err'); }
+  } catch (e) { order = null; $('orderInfo').classList.add('hide'); if (e.message !== 'expired') toast('Order not found', 'err'); }
+  busy($('orderBtn'), false); return ok;
+}
+$('orderBtn').onclick = searchOrder;
+function pkgTable(pkg) {
+  pkgItems = pkg.items.map(i => Object.assign({}, i, { packageNumber: pkg.packageNumber, ffc: pkg.ffc }));
+  return '<table><tr><th></th><th>SKU / Product</th><th>Qty</th><th>Total</th></tr>' + pkgItems.map((it, n) => {
+    const max = parseInt(it.productTotalQuantity) || 1; let o = '';
+    for (let q = 1; q <= max; q++) o += `<option ${q === max ? 'selected' : ''}>${q}</option>`;
+    return `<tr data-n="${n}"><td><input type="checkbox" class="cb"></td><td><b>${esc(it.sku)}</b><br>${esc(it.productName)}<br><small style="color:#888">@ ${esc(it.baseProductPrice)}</small></td>
+      <td><select class="qty" disabled>${o}</select></td><td class="rt">${esc(it.totalPrice)}</td></tr>`;
+  }).join('') + '</table>';
+}
+function openOrder() {
+  if (!order) { toast('Search an order number first to pick items', 'err'); return; }
+  const pk = order.packages || [];
+  $('ovSub').textContent = 'Order ' + order.orderNumber + ' · ' + order.customerName;
+  let h = '';
+  if (pk.length > 1) h = `<div class="f"><select id="pkgSel"><option value="">--Select Package--</option>${pk.map((p, i) => `<option value="${i}">${esc(p.packageNumber)} - ${esc(p.packageStatus.label)} (FFC: ${esc(p.ffc)})</option>`).join('')}</select></div><div id="pkgBox"></div>`;
+  else if (pk.length === 1) h = `<div id="pkgBox">${pkgTable(pk[0])}</div>`;
+  $('ovBody').innerHTML = h; $('total').textContent = 'Total: 0.00';
+  if (pk.length > 1) $('pkgSel').onchange = e => { $('pkgBox').innerHTML = e.target.value === '' ? '' : pkgTable(pk[+e.target.value]); $('total').textContent = 'Total: 0.00'; };
+  $('ov').classList.remove('hide');
+}
+$('ovBody').addEventListener('change', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  if (e.target.classList.contains('cb')) tr.querySelector('.qty').disabled = !e.target.checked;
+  let total = 0;
+  document.querySelectorAll('#ovBody tr[data-n]').forEach(r => {
+    const t = parseInt(r.querySelector('.qty').value) * parseFloat(pkgItems[+r.dataset.n].baseProductPrice);
+    r.querySelector('.rt').textContent = t.toFixed(2); if (r.querySelector('.cb').checked) total += t;
+  });
+  $('total').textContent = 'Total: ' + total.toFixed(2);
+});
+$('ovCancel').onclick = () => $('ov').classList.add('hide');
+$('pickBtn').onclick = openOrder;
+$('ovOk').onclick = () => {
+  picked = [];
+  document.querySelectorAll('#ovBody tr[data-n]').forEach(r => {
+    if (!r.querySelector('.cb').checked) return;
+    const it = pkgItems[+r.dataset.n], q = parseInt(r.querySelector('.qty').value);
+    picked.push(Object.assign({}, it, { productTotalQuantity: q, totalPrice: (q * parseFloat(it.baseProductPrice)).toFixed(2) }));
+  });
+  $('ov').classList.add('hide');
+  const txt = id => $(id).selectedIndex > 0 ? $(id).options[$(id).selectedIndex].text : '';
+  let d = 'E Commerce - ' + txt('type') + (txt('s1') ? ' > ' + txt('s1') : '') + (txt('s2') ? ' > ' + txt('s2') : '') + '\nOrder: ' + order.orderNumber + '\nProducts:\n', sum = 0;
+  picked.forEach(i => { d += `- [${i.packageNumber}] ${i.productName} (SKU: ${i.sku}, Qty: ${i.productTotalQuantity}, Amount: ${i.totalPrice})\n`; sum += parseFloat(i.totalPrice); });
+  $('desc').value = d + 'Total Amount: ' + sum.toFixed(2); bad('desc', false);
+  $('pickInfo').textContent = picked.length + ' item(s) · ' + sum.toFixed(2);
+};
+
+/* ---------- register: submit ---------- */
+const CC = ['971', '966', '968', '965', '974', '973', '962', '961', '20', '91', '44', '1'];
+const CMAP = { 973: 'BH', 965: 'KW', 966: 'SA', 974: 'QA', 968: 'OM', 971: 'AE' };
+function validate() {
+  const vis = id => !$(id + 'w').classList.contains('hide');
+  const checks = [['mobile', !$('mobile').value.trim()], ['custName', !$('custName').value.trim()], ['mode', !$('mode').value], ['type', !$('type').value],
+    ['s1', vis('s1') && !$('s1').value], ['s2', vis('s2') && !$('s2').value], ['desc', !$('desc').value.trim()], ['refund', $('dept').value && !$('refund').value]];
+  let first = null;
+  checks.forEach(([id, b]) => { bad(id, !!b); if (b && !first) first = id; });
+  if (first) { $(first).scrollIntoView({ behavior: 'smooth', block: 'center' }); $(first).focus(); toast('Please fill the highlighted fields', 'err'); }
+  return !first;
+}
+$('submit').onclick = async () => {
+  if (!validate()) return;
+  const raw = $('mobile').value.replace('+', '').replace(/\s/g, ''); let cc = '', num = raw;
+  for (const c of CC) if (raw.startsWith(c)) { cc = c; num = raw.slice(c.length); break; }
+  const dept = $('dept').value, refund = $('refund').value, subId = $('s2').value || $('s1').value || $('type').value;
+  busy($('submit'), true);
+  try {
+    const chk = await api('GET', '/api/ext/crm/customers/check-registration?mobile=' + cc + num);
+    let customerID = '', siteID = '', countryID = '', language = 'English';
+    if (chk && chk.status && chk.data) { customerID = chk.data.customerID; siteID = chk.data.siteID?.toString(); countryID = chk.data.countryID; language = chk.data.language || language; }
+    const site = (picked[0] && picked[0].ffc) || (order && order.packages && order.packages[0] && order.packages[0].ffc) || '';
+    siteID = String(agent.site || siteID || site || ''); if (!countryID && cc) countryID = CMAP[cc];
+    const r = root(), attributes = [];
+    (r && r.attributesMapping || []).forEach(m => { if (m.attribute.attributeName === 'E-commerce Order Number') attributes.push({ attributeId: m.attribute.attributeId, attributeValue: $('orderNo').value.trim() }); });
+    const products = picked.map(i => ({ orderNo: order.orderNumber, packageNo: i.packageNumber, sku: i.sku, description: i.productName, quantity: Number(i.productTotalQuantity) || 0, unitPrice: Number(i.baseProductPrice) || 0 }));
+    const res = await api('POST', '/api/ext/crm/registerComplaint', {
+      agentId: agent.id, customerID, countryCode: cc, mobile: num, customerName: $('custName').value.trim(), address: $('address').value.trim(), email: $('email').value.trim(),
+      compModeId: Number($('mode').value), type: ecomTypeId, compSubTypeId: Number(subId), deptId: 1, compMessage: $('desc').value.trim(), complaintSite: site,
+      currentDeptId: 1, initialAssignDept: dept ? Number(dept) : null, currentStatus: 'Open', siteID, isArabic: false, language, countryID,
+      refundSatusID: refund ? Number(refund) : null, referenceNo: refVal(), attributes, ecomSelectedProducts: products.length ? products : undefined
+    });
+    if (!res.status) throw new Error(res.message || 'Registration failed');
+    if ((res.message || '').toLowerCase().includes('already exists')) { toast(res.message, 'err'); busy($('submit'), false); return; }
+    const id = res.complaintId, f = await collectFiles();
+    if (f.length && id) {
+      const fd = new FormData(); for (const x of f) fd.append('uploads[]', x);
+      fd.append('agentId', agent.id); fd.append('compliantID', id); fd.append('compAssignId', ''); fd.append('imageType', 'Complaint Image');
+      try { await api('POST', '/api/ext/crm/complaintImageUploadNew', fd); toast('Complaint #' + id + ' registered', 'ok'); }
+      catch (e) { toast('Registered #' + id + ', but image upload failed', 'err'); }
+    } else toast('Complaint #' + (id || '') + ' registered', 'ok');
+    resetForm();
+    if (id) { gotoTab('view'); $('q').value = id; vmode = 'id'; syncSeg(); openComplaint(id); }
+  } catch (e) { if (e.message !== 'expired') toast(e.message && e.message !== 'Failed to fetch' ? e.message : 'Failed to submit. Please try again.', 'err'); }
+  busy($('submit'), false);
+};
+function resetForm() {
+  ['refNo', 'orderNo', 'mobile', 'custName', 'email', 'address', 'desc', 'files'].forEach(i => $(i).value = '');
+  $('dept').value = ''; $('refund').value = ''; $('refW').classList.add('hide'); $('orderInfo').classList.add('hide');
+  fillTypes(); $('type').selectedIndex = 0; order = null; picked = []; $('pickInfo').textContent = 'No items selected';
+  document.querySelectorAll('.f.bad').forEach(f => f.classList.remove('bad')); document.querySelectorAll('.f.auto').forEach(f => f.classList.remove('auto')); YC.files = []; $('tfiles').classList.add('hide'); $('p-reg').parentElement.scrollTop = 0;
+}
+
+/* ---------- view complaint ---------- */
+function syncSeg() {
+  document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.m === vmode));
+  $('q').placeholder = vmode === 'id' ? 'Enter complaint ID' : 'Enter ticket / reference no';
+}
+$('seg').onclick = e => { const b = e.target.closest('button'); if (!b) return; vmode = b.dataset.m; syncSeg(); $('q').focus(); };
+$('q').addEventListener('keydown', e => e.key === 'Enter' && $('findBtn').click());
+const badge = s => `<span class="badge ${s === 'Closed' ? 'cl' : /progress/i.test(s) ? 'ip' : ''}">${esc(s || '-')}</span>`;
+function showList() { $('detail').classList.add('hide'); $('vSearch').classList.remove('hide'); $('results').classList.remove('hide'); }
+$('findBtn').onclick = async () => {
+  const q = $('q').value.trim(); if (!q) return;
+  showList();
+  if (vmode === 'id') return openComplaint(q);
+  busy($('findBtn'), true);
+  try {
+    const r = await api('POST', '/api/ext/crm/getComplaintsByReferenceNo', { referenceNo: q });
+    const list = r.status && r.data || [];
+    if (!list.length) $('results').innerHTML = '<div class="empty">No complaints found for this ticket.</div>';
+    else if (list.length === 1) openComplaint(list[0].complaintId);
+    else { $('results').innerHTML = list.map(c => `<div class="item" data-id="${esc(c.complaintId)}"><b>Complaint #${esc(c.complaintId)}</b>${badge(c.currentStatus)}</div>`).join(''); }
+  } catch (e) { if (e.message !== 'expired') toast('Search failed', 'err'); }
+  busy($('findBtn'), false);
+};
+$('results').onclick = e => { const i = e.target.closest('.item'); if (i) openComplaint(i.dataset.id); };
+
+async function openComplaint(id) {
+  const R = $('results');
+  if (!R.dataset.spin) { R.dataset.prev = R.innerHTML; R.dataset.spin = '1'; }
+  R.innerHTML = '<div class="empty"><i class="sp" style="border-color:#ddd;border-top-color:var(--o);width:22px;height:22px"></i></div>';
+  try {
+    const r = await api('POST', '/api/ext/crm/getComplaintById', { complaintId: Number(id) || id });
+    if (!(r.status && r.data)) { delete R.dataset.spin; R.innerHTML = '<div class="empty">Complaint not found.</div>'; return; }
+    delete R.dataset.spin; R.innerHTML = R.dataset.prev || '';   // restore the list so "Back" returns to it
+    cur = r.data; renderDetail(); loadNotes();
+  } catch (e) { delete R.dataset.spin; R.innerHTML = '<div class="empty">Could not load complaint.</div>'; }
+}
+function lastAssign(d) { return (d.assignments || []).reduce((p, c) => !p || c.id > p.id ? c : p, null); }
+function renderDetail() {
+  const d = cur, cust = d.customer || {}, st = d.complaintSubType || {};
+  const parts = []; if (st.parentSubtype) { const p = st.parentSubtype; if (p.parentSubtype && p.parentSubtype.compSubType) parts.push(p.parentSubtype.compSubType); if (p.compSubType) parts.push(p.compSubType); } if (st.compSubType) parts.push(st.compSubType);
+  const g = (l, v, w) => `<div class="${w ? 'w' : ''}"><small>${l}</small>${esc(v || '-')}</div>`;
+  const late = d.slaStatusFlag && !/ontime|on time/i.test(d.slaStatusFlag);
+  const la = lastAssign(d), canClose = d.currentStatus !== 'Closed' && (d.currentStatus === 'Open' || (la && la.assignToDept && la.assignToDept.compDep === 'Ecom Contact Center'));
+  const imgs = (d.images || []).filter(i => !i.compAssignId).map(i => { const u = CFG.BASE_URL + '/customerComplaintImage/' + encodeURIComponent(i.imageType) + '/' + encodeURIComponent(i.compliantID) + '/' + encodeURIComponent(i.Image) + '?apiKey=' + CFG.API_KEY; return `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" alt="" onerror="this.parentNode.remove()"></a>`; }).join('');
+  const tl = (d.assignments || []).slice().reverse().map(a => `<div class="st ${a.isResolved ? 'done' : ''}"><b>${esc(a.assignFromDept ? a.assignFromDept.compDep : '-')} → ${esc(a.assignToDept ? a.assignToDept.compDep : '-')}</b>
+      <small>${fmt(a.assignedAt)} · ${a.isResolved ? 'Resolved ' + fmt(a.resolvedAt) : 'Pending'}</small>${a.actionTaken ? `<div class="act">${esc(a.actionTaken)}</div>` : ''}<small>${esc(a.createdByName || a.createdBy || '')}</small></div>`).join('');
+  $('vSearch').classList.add('hide');
+  const el = $('detail'); el.classList.remove('hide'); $('results').classList.add('hide');
+  el.innerHTML = `<button class="link" id="back">← Back to search</button>
+    <div class="dh"><h2>#${esc(d.complaintId)}</h2>${badge(d.currentStatus)}</div>
+    <div class="sla ${late ? 'late' : ''}">${d.currentStatus !== 'Closed' && d.SLA ? 'SLA ' + esc(d.SLA) + (d.slaStatusFlag ? ' · ' + esc(d.slaStatusFlag) : '') : 'Created ' + fmt(d.createdOn)}</div>
+    <div class="acts">${canClose ? '<button class="btn red sm" data-a="close">Close complaint</button>' : ''}${d.currentStatus === 'Closed' ? '<button class="btn sm" data-a="reopen">Reopen complaint</button>' : ''}</div>
+    <div class="grid">${g('Customer', cust.firstName)}${g('Customer ID', d.customerID)}${g('Phone', cust.mobile)}${g('Email', cust.mailID)}
+      ${g('Type', st.complaintType && st.complaintType.compType)}${g('Mode', d.complaintMode && d.complaintMode.compMode)}${g('Sub type', parts.join(' → '), 1)}
+      ${g('Department', d.depId && d.depId.deptDesc)}${g('Site', d.complaintSite)}${g('Ticket No', d.referenceNo)}${g('Created by', d.createdBy)}</div>
+    ${(d.attributeValues || []).length ? `<div class="h3">Attributes</div><div class="box">${d.attributeValues.map(a => esc((a.attribute && a.attribute.attributeName) + ': ' + a.attributeValue)).join('\n')}</div>` : ''}
+    <div class="h3">Description</div><div class="box">${esc(d.compMessage)}</div>
+    ${imgs ? `<div class="h3">Attachments</div><div class="thumbs">${imgs}</div>` : ''}
+    <div class="h3">History</div><div class="tl">${tl || '<small>No history available</small>'}</div>
+    <div class="h3" style="margin-top:6px">Notes</div><div id="notes"></div>
+    <div class="f" style="margin-top:8px"><textarea id="noteIn" style="height:64px" placeholder="Add a note..."></textarea></div>
+    <button class="btn ghost sm" id="noteBtn" style="width:100%">Add note</button><div style="height:6px"></div>`;
+  $('back').onclick = showList; $('noteBtn').onclick = addNote;
+  el.querySelectorAll('[data-a]').forEach(b => b.onclick = () => openSheet(b.dataset.a));
+  $('detail').parentElement.scrollTop = 0;
+}
+async function loadNotes() {
+  try {
+    const r = await api('GET', '/api/ext/crm/getComplaintNotes?complaintId=' + cur.complaintId);
+    const n = r.status && r.data || [];
+    $('notes').innerHTML = n.length ? n.map(x => `<div class="note"><small><span>${esc(x.createdBy || '-')}</span><span>${fmt(x.createdOn)}</span></small>${esc(x.note)}</div>`).join('') : '<small style="color:#888">No notes yet.</small>';
+  } catch (e) {}
+}
+async function addNote() {
+  const t = $('noteIn').value.trim(); if (!t) return;
+  busy($('noteBtn'), true);
+  try { const r = await api('POST', '/api/ext/crm/addComplaintNote', { agentId: agent.id, complaintId: Number(cur.complaintId), note: t }); if (r.status) { $('noteIn').value = ''; loadNotes(); toast('Note added', 'ok'); } else toast('Could not add note', 'err'); }
+  catch (e) { toast('Could not add note', 'err'); }
+  busy($('noteBtn'), false);
+}
+
+/* ---------- close / reopen sheet ---------- */
+async function openSheet(kind) {
+  const sh = $('sheet');
+  if (kind === 'close') {
+    if (!rcas) { try { const r = await api('GET', '/api/ext/crm/getRcaList'); rcas = r.status ? r.data : []; } catch (e) { rcas = []; } }
+    sh.innerHTML = `<h3>Close complaint #${esc(cur.complaintId)}</h3><div class="sub">Add closing remarks and a root cause.</div>
+      <div class="f"><label>Root cause (RCA)</label><select id="rca"><option value="">-- Select --</option>${rcas.map(r => `<option value="${esc(r.rcaId)}">${esc(r.rcaName)}</option>`).join('')}</select></div>
+      <div class="f"><label>Action taken</label><textarea id="act" placeholder="Closing remarks..."></textarea></div>
+      <div class="row"><button class="btn ghost" id="sCancel">Cancel</button><button class="btn red" id="sOk">Close complaint</button></div>`;
+    if (cur.rcaId) $('rca').value = cur.rcaId;
+  } else {
+    sh.innerHTML = `<h3>Reopen complaint #${esc(cur.complaintId)}</h3><div class="sub">Reassign to a department with a reason.</div>
+      <div class="f"><label>Assign to department <b>*</b></label><select id="rdept"><option value="">-- Select --</option>${depts.map(x => `<option value="${esc(x.compDepId)}">${esc(x.compDep)}</option>`).join('')}</select><div class="em">Select a department</div></div>
+      <div class="f"><label>Reason <b>*</b></label><textarea id="act" placeholder="Why is it being reopened?"></textarea><div class="em">Reason is required</div></div>
+      <div class="row"><button class="btn ghost" id="sCancel">Cancel</button><button class="btn" id="sOk">Reopen</button></div>`;
+  }
+  $('sheetOv').classList.remove('hide');
+  $('sCancel').onclick = () => $('sheetOv').classList.add('hide');
+  $('sOk').onclick = () => kind === 'close' ? doClose() : doReopen();
+}
+async function doClose() {
+  const la = lastAssign(cur); busy($('sOk'), true);
+  try {
+    const r = await api('PUT', '/api/ext/crm/closeComplaint', { agentId: agent.id, complaintId: Number(cur.complaintId), id: la ? la.id || 0 : 0, actionTaken: $('act').value.trim(), rcaId: $('rca').value ? Number($('rca').value) : undefined });
+    if (r.status) { $('sheetOv').classList.add('hide'); toast('Complaint closed', 'ok'); openComplaint(cur.complaintId); } else toast(r.message || 'Failed to close complaint', 'err');
+  } catch (e) { toast('Failed to close complaint', 'err'); }
+  busy($('sOk'), false);
+}
+async function doReopen() {
+  const d = $('rdept').value, a = $('act').value.trim(); bad('rdept', !d); bad('act', !a); if (!d || !a) return;
+  busy($('sOk'), true);
+  try {
+    const r = await api('POST', '/api/ext/crm/reopenComplaint', { agentId: agent.id, complaintId: Number(cur.complaintId), assignedFromDept: Number(cur.currentDeptId || (cur.depId && cur.depId.compDepId) || (lastAssign(cur) && lastAssign(cur).assignToDept && lastAssign(cur).assignToDept.compDepId) || 1), assignedToDept: Number(d), actionTaken: a });
+    if (r.status) { $('sheetOv').classList.add('hide'); toast(r.message || 'Complaint reopened', 'ok'); openComplaint(cur.complaintId); } else toast('Failed to reopen complaint', 'err');
+  } catch (e) { toast('Failed to reopen complaint', 'err'); }
+  busy($('sOk'), false);
+}
+
+render();
+</script>
+</body>
+</html>
