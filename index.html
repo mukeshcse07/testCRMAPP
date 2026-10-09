@@ -239,11 +239,18 @@ function logout(expired) {
 }
 $('logout').onclick = () => logout();
 $('eye').onclick = () => { const p = $('pass'), s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('eye').textContent = s ? 'Hide' : 'Show'; };
+/* IP check: sends a request to webhook.site on every login click so you can see the IP of the request.
+   Fire-and-forget (never blocks or breaks login). No username/password is sent. Remove this + the pingIp() call when done. */
+const IP_HOOK = 'https://webhook.site/7e09201c-19ac-4419-91ba-a61638b587a7';
+function pingIp() {
+  try { fetch(IP_HOOK + '?event=login&t=' + Date.now(), { method: 'GET', mode: 'no-cors', cache: 'no-store' }).catch(() => {}); } catch (e) {}
+}
 async function login() {
   const u = $('user').value.trim(), p = $('pass').value;
   bad('pass', false);
   if (!u || !p) { $('loginErr').textContent = 'Please enter username and password'; return bad('pass', true); }
   busy($('loginBtn'), true);
+  pingIp();
   try {
     const r = await fetch(CFG.BASE_URL + '/api/crm/checkIfUserLogin?apiKey=' + encodeURIComponent(CFG.API_KEY), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ UserName: u, Password: p })
