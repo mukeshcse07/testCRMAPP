@@ -356,6 +356,21 @@ function findCF(o, d = 9) {
   return '';
 }
 
+/* Yellow.ai shape: definitions  customFields:[{name:"Package ID", key:"s1"}, ...]
+                    values       ticketDetails.customFields:{ s1:"335572135152INP1", ... }
+   Step 1: find the key of the field named "Package ID".  Step 2: read that key from the values object. */
+function walk(o, fn, d = 10) {
+  if (!o || typeof o !== 'object' || d < 0) return;
+  fn(o);
+  for (const k of Object.keys(o)) walk(o[k], fn, d - 1);
+}
+function pkgByKey(raw) {
+  let key = '', val = '';
+  walk(raw, o => { if (!key && !Array.isArray(o) && typeof o.name === 'string' && typeof o.key === 'string' && isPkgName(o.name)) key = o.key; });
+  if (key) walk(raw, o => { if (!val && !Array.isArray(o) && Object.prototype.hasOwnProperty.call(o, key)) val = pickVal(o[key]); });
+  return { key, val };
+}
+
 /* Header (Ticket / Agent) + E-Commerce Order No from custom field "Package ID".
    "335572135152INP1" -> "335572135152". If the field is missing or has no number, the box stays empty. */
 async function applyAutofill() {
@@ -363,8 +378,8 @@ async function applyAutofill() {
   renderCtx();
   if ($('orderNo').value.trim()) return;
   window.__yc = YC.raw;
-  const pkg = findCF(YC.raw), m = pkg.match(/\d{6,}/);
-  console.log('[Package ID] raw value:', JSON.stringify(pkg), '-> order no:', m ? m[0] : '(none)');
+  const bk = pkgByKey(YC.raw), pkg = bk.val || findCF(YC.raw), m = pkg.match(/\d{6,}/);
+  console.log('[Package ID] field key:', bk.key || '(not found)', '| raw value:', JSON.stringify(pkg), '-> order no:', m ? m[0] : '(none)');
   if (!m) return;
   $('orderNo').value = m[0];
   markAuto('orderNo');
