@@ -310,7 +310,8 @@ async function initYellow() {
   const y = window.yApp;
   if (y) {
     const un = r => r && (r.eventResponse && r.eventResponse.eventData || r.data) || r;
-    const R = await Promise.allSettled([y.getTicket && y.getTicket(), y.getAgent && y.getAgent(), y.ask && y.ask('ask_ticket_cf_info'), y.getTicketCF && y.getTicketCF()]);
+    const T = p => Promise.race([Promise.resolve(p), new Promise(r => setTimeout(() => r(null), 6000))]);
+    const R = await Promise.allSettled([T(y.getTicket && y.getTicket()), T(y.getAgent && y.getAgent()), T(y.ask && y.ask('ask_ticket_cf_info')), T(y.getTicketCF && y.getTicketCF())]);
     const v = p => p.status === 'fulfilled' ? un(p.value) : null;
     const tk = v(R[0]), ag = v(R[1]), ask = v(R[2]), cf = v(R[3]);
     console.log('[YApps] ticket / agent / ask / customFields:', tk, ag, ask, cf);
@@ -335,20 +336,23 @@ const markAuto = id => $(id).closest('.f').classList.add('auto');
 document.addEventListener('input', e => { const f = e.target.closest && e.target.closest('.f.auto'); if (f) f.classList.remove('auto'); });
 document.addEventListener('change', e => { const f = e.target.closest && e.target.closest('.f.auto'); if (f && !prefilling) f.classList.remove('auto'); });
 
-/* Finds ONE custom field by its exact name (e.g. "Package ID"). Exact match only, so other fields can never leak in. */
-const CF_NAME_KEYS = ['name', 'key', 'label', 'displayname', 'fieldname', 'id'];
-function findCF(o, wanted, d = 8) {
+/* Finds the custom field "Package ID" (also cf_package_id, package_id ...). Only this field is ever read. */
+const CF_NAME_KEYS = ['name', 'key', 'label', 'displayname', 'fieldname', 'title', 'id', 'customfieldname', 'fieldlabel'];
+const CF_VAL_KEYS = ['value', 'fieldvalue', 'val', 'text', 'data', 'selectedvalue'];
+const isPkgName = n => { n = nk(n); return n === 'packageid' || n.endsWith('packageid'); };
+const prim = v => v != null && typeof v !== 'object' && String(v).trim() !== '';
+function pickVal(o, d = 3) {
+  if (prim(o)) return String(o).trim();
   if (!o || typeof o !== 'object' || d < 0) return '';
-  if (Array.isArray(o)) { for (const i of o) { const r = findCF(i, wanted, d - 1); if (r) return r; } return ''; }
-  for (const k of Object.keys(o)) {                       // shape: { "Package ID": "123INP1" }
-    if (nk(k) !== wanted) continue;
-    let v = o[k]; if (v && typeof v === 'object') v = v.value ?? v.label;
-    if (v != null && typeof v !== 'object' && String(v).trim()) return String(v).trim();
-  }
-  if (o.value != null && typeof o.value !== 'object' && String(o.value).trim()) {   // shape: { name: "Package ID", value: "123INP1" }
-    for (const k of CF_NAME_KEYS) if (typeof o[k] === 'string' && nk(o[k]) === wanted) return String(o.value).trim();
-  }
-  for (const k of Object.keys(o)) { const r = findCF(o[k], wanted, d - 1); if (r) return r; }
+  for (const k of Object.keys(o)) if (CF_VAL_KEYS.includes(nk(k))) { const r = pickVal(o[k], d - 1); if (r) return r; }
+  return '';
+}
+function findCF(o, d = 9) {
+  if (!o || typeof o !== 'object' || d < 0) return '';
+  if (Array.isArray(o)) { for (const i of o) { const r = findCF(i, d - 1); if (r) return r; } return ''; }
+  for (const k of Object.keys(o)) if (isPkgName(k)) { const r = pickVal(o[k]); if (r) return r; }                        // { "Package ID": "123INP1" } or { package_id: { value: ".." } }
+  for (const k of Object.keys(o)) if (CF_NAME_KEYS.includes(nk(k)) && typeof o[k] === 'string' && isPkgName(o[k])) { const r = pickVal(o); if (r) return r; }   // { name: "Package ID", value: "123INP1" }
+  for (const k of Object.keys(o)) { const r = findCF(o[k], d - 1); if (r) return r; }
   return '';
 }
 
@@ -358,7 +362,9 @@ async function applyAutofill() {
   await yReady;
   renderCtx();
   if ($('orderNo').value.trim()) return;
-  const m = findCF(YC.raw, 'packageid').match(/\d{6,}/);
+  window.__yc = YC.raw;
+  const pkg = findCF(YC.raw), m = pkg.match(/\d{6,}/);
+  console.log('[Package ID] raw value:', JSON.stringify(pkg), '-> order no:', m ? m[0] : '(none)');
   if (!m) return;
   $('orderNo').value = m[0];
   markAuto('orderNo');
