@@ -637,6 +637,40 @@ $('ovOk').onclick = () => {
   $('pickInfo').textContent = picked.length + ' item(s) · ' + sum.toFixed(2);
 };
 
+/* ---------- Insert draft into the Inbox reply editor ---------- */
+/* Fill these once yellow.ai gives you the real names (see console log "[YApps] SDK methods"). */
+const REPLY_METHOD = '';   // e.g. 'setReplyContent'  (a method on window.yApp)
+const REPLY_EVENT  = '';   // e.g. 'set_reply_content' (an event name for yApp.ask)
+
+const toHtml = t => t.split(/\n{2,}/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+const withTimeout = (p, ms) => Promise.race([Promise.resolve(p), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+async function insertIntoReply({ to, subject, body }) {
+  const y = window.yApp;
+  if (!y) return false;
+  console.log('[YApps] SDK methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(y)));
+  const html = toHtml(body);
+  const payload = { to, subject, body, html, text: body, content: html };
+
+  /* guesses - only used when REPLY_METHOD / REPLY_EVENT are empty */
+  const methods = REPLY_METHOD ? [REPLY_METHOD] : ['setReplyContent', 'setReplyText', 'insertReply', 'setEditorContent', 'prefillReply', 'setReply'];
+  const events  = REPLY_EVENT  ? [REPLY_EVENT]  : ['set_reply_content', 'insert_reply', 'prefill_reply', 'set_editor_content'];
+
+  for (const m of methods) {
+    if (typeof y[m] === 'function') {
+      try { await withTimeout(y[m](payload), 4000); console.log('[YApps] inserted via method', m); return true; }
+      catch (e) { console.warn('[YApps] method failed', m, e); }
+    }
+  }
+  if (typeof y.ask === 'function') {
+    for (const ev of events) {
+      try { await withTimeout(y.ask(ev, payload), 3000); console.log('[YApps] inserted via event', ev); return true; }
+      catch (e) { console.warn('[YApps] event failed', ev, e); }
+    }
+  }
+  return false;
+}
+
 /* ---------- Draft email to customer ---------- */
 const optTxt = id => $(id).selectedIndex > 0 ? $(id).options[$(id).selectedIndex].text : '';
 function draftSnap() {
@@ -674,14 +708,27 @@ function buildMail(s) {
 }
 function openDraft(s) {
   const subj = 'Update on your complaint' + (s.orderNo ? ' – Order ' + s.orderNo : '') + (s.id ? ' (#' + s.id + ')' : '');
-  $('sheet').innerHTML = `<h3>Draft email to customer</h3><div class="sub">Review and edit, then copy or open in your mail app.</div>
+  $('sheet').innerHTML = `<h3>Draft email to customer</h3><div class="sub">Review and edit, then insert into the reply box.</div>
     <div class="f"><label>To</label><input id="mTo" type="email" value="${esc(s.email)}" placeholder="customer@example.com"></div>
     <div class="f"><label>Subject</label><input id="mSub" value="${esc(subj)}"></div>
     <div class="f"><label>Message</label><textarea id="mBody" style="height:260px">${esc(buildMail(s))}</textarea></div>
-    <div class="row"><button class="btn ghost" id="mCopy">Copy</button><button class="btn" id="mOpen">Open in Mail</button></div>
+    <div class="row"><button class="btn" id="mInsert">Insert into reply</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn ghost" id="mCopy">Copy</button><button class="btn ghost" id="mOpen">Open in Mail</button></div>
     <div class="row" style="margin-top:8px"><button class="btn ghost" id="sCancel">Close</button></div>`;
   $('sheetOv').classList.remove('hide');
   $('sCancel').onclick = () => $('sheetOv').classList.add('hide');
+
+  $('mInsert').onclick = async () => {
+    const draft = { to: $('mTo').value.trim(), subject: $('mSub').value, body: $('mBody').value };
+    busy($('mInsert'), true);
+    const ok = await insertIntoReply(draft);
+    busy($('mInsert'), false);
+    if (ok) { toast('Inserted into reply box', 'ok'); $('sheetOv').classList.add('hide'); }
+    else {
+      try { await navigator.clipboard.writeText(draft.body); } catch (e) {}
+      toast('Auto-insert not available. Email copied - click the reply box and paste (Ctrl+V)', 'err');
+    }
+  };
   $('mCopy').onclick = async () => {
     const t = 'Subject: ' + $('mSub').value + '\n\n' + $('mBody').value;
     try { await navigator.clipboard.writeText(t); }
