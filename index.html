@@ -402,7 +402,7 @@ async function lookupAgentId(email) {
   try {
     const r = await fetch(L.URL, {
       method: 'POST',
-      headers: { 'accept': 'application/json', 'content-type': 'application/json', 'platform': 'cloud', 'origin':'https://cloud.yellow.ai', 'x-api-key': L.API_KEY },
+      headers: { 'accept': 'application/json', 'content-type': 'application/json', 'origin':'https://mukeshcse07.github.io/', 'x-api-key': L.API_KEY },
       body: JSON.stringify({ query: { skip: 0, limit: 10, sort: { updated_at: { order: 'DESC' } },
         filter: { type: 'AND', fields: [{ type: 'CONTAINS', column: 's3', value: em, caseInsensitiveSearch: true }] } } })
     });
