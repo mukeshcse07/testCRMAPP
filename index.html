@@ -215,17 +215,24 @@ if (LOGO) {
 function toast(m, t) { const e = $('toast'); e.textContent = m; e.className = 'toast show ' + (t || ''); clearTimeout(toast.h); toast.h = setTimeout(() => e.className = 'toast', 3600); }
 function busy(b, on) { if (!b) return; if (on) { b.dataset.l = b.innerHTML; b.innerHTML = '<i class="sp"></i>'; b.disabled = true; } else { b.innerHTML = b.dataset.l || b.innerHTML; b.disabled = false; } }
 
-/* ---------- Write API failure code + message into ticket custom field "CRM API STATUS" ---------- */
-/* ---------- Write API failure code + message into ticket custom field "CRM API Failure Alert" (key s21) ---------- */
+/* ---------- Write API failure code + message into ticket custom field "CRM API Failure Alert" ----------
+   Key by name first (from the ticket's custom field definitions), fallback to fixed key s21. */
+const STATUS_FIELD = 'CRM API Failure Alert';
 const STATUS_KEY = 's21';
 
+function statusKey() {
+  let key = '';
+  walk(YC.raw, o => { if (!key && !Array.isArray(o) && typeof o.name === 'string' && typeof o.key === 'string' && nk(o.name) === nk(STATUS_FIELD)) key = o.key; });
+  return key || STATUS_KEY;
+}
 async function setApiStatus(code, message) {
   const y = window.yApp;
   if (!y || typeof y.updateTicketCF !== 'function') return false;
+  const key = statusKey();
   const value = (code + ' - ' + message).slice(0, 250);
   try {
-    await y.updateTicketCF({ [STATUS_KEY]: value });
-    console.log('[YApps] CRM API Failure Alert updated:', STATUS_KEY, value);
+    await y.updateTicketCF({ [key]: value });   // e.g. { s21: "500 - POST /api/... - HTTP 500" }
+    console.log('[YApps] CRM API Failure Alert updated:', key, value);
     return true;
   } catch (e) { console.warn('[YApps] updateTicketCF failed', e); return false; }
 }
