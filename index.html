@@ -216,7 +216,7 @@ function toast(m, t) { const e = $('toast'); e.textContent = m; e.className = 't
 function busy(b, on) { if (!b) return; if (on) { b.dataset.l = b.innerHTML; b.innerHTML = '<i class="sp"></i>'; b.disabled = true; } else { b.innerHTML = b.dataset.l || b.innerHTML; b.disabled = false; } }
 
 /* ---------- Write API failure code + message into ticket custom field "CRM API STATUS" ---------- */
-const STATUS_FIELD = 'CRM API STATUS';
+const STATUS_FIELD = 'CRM API Failure Alert';
 
 function statusKey() {
   let key = '';
@@ -347,7 +347,7 @@ function dig(o, keys, d = 5) {
 /* ---------- Agent ID from the ticket custom fields ----------
    ticketDetails.customFields = { s11: "810281", ... }.  Read key s11 first; if it is empty,
    also try a custom field whose NAME is "Agent ID". */
-const AGENT_ID_KEY = 's11';
+const AGENT_ID_KEY = 's19';
 function agentIdFromCF() {
   for (const r of (YC.raw || [])) {
     const vals = r && r.ticketDetails && r.ticketDetails.customFields;
