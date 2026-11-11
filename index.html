@@ -217,7 +217,7 @@ function toast(m, t) { const e = $('toast'); e.textContent = m; e.className = 't
 function busy(b, on) { if (!b) return; if (on) { b.dataset.l = b.innerHTML; b.innerHTML = '<i class="sp"></i>'; b.disabled = true; } else { b.innerHTML = b.dataset.l || b.innerHTML; b.disabled = false; } }
 
 /* ---------- Write API status into ticket custom field "CRM API Failure Alert" ----------
-   Success -> "API working"   |   Failure -> "<code> - <METHOD> <path> - <detail>"
+   Only failures are written: "<code> - <METHOD> <path> - <detail>"
    Key by name first (from the ticket's custom field definitions), fallback to fixed key s21. */
 const STATUS_FIELD = 'CRM API Failure Alert';
 const STATUS_KEY = 's21';
@@ -227,7 +227,7 @@ function statusKey() {
   return (d && d.key) || STATUS_KEY;
 }
 
-let apiOk = null, statusQ = Promise.resolve();
+let statusQ = Promise.resolve();
 
 /* YApps SDK v1.0.0 only has ask() / update() / registerControl() - there is NO updateTicketCF().
    Newer SDKs may have it, so use it when present, otherwise send the "update_custom_fields" event. */
@@ -264,21 +264,14 @@ async function setApiStatus(value) {
   return false;
 }
 /* calls are queued so a slow write never overtakes a newer one */
-function queueStatus(value, ok) {
-  apiOk = ok;
-  statusQ = statusQ.then(async () => { if (!(await setApiStatus(value))) apiOk = null; }).catch(() => { apiOk = null; });
-}
-
-/* API call succeeded -> "API working" (only written when the state changes) */
-function reportOk() {
-  if (apiOk === true) return;
-  queueStatus('API working', true);
+function queueStatus(value) {
+  statusQ = statusQ.then(() => setApiStatus(value)).catch(() => {});
 }
 
 /* API call failed -> code + message, as usual */
 function reportFail(method, path, detail) {
   const code = (/HTTP (\d+)/.exec(detail) || [])[1] || (/^Network/.test(detail) ? 'NETWORK' : 'ERROR');
-  queueStatus((code + ' - ' + method + ' ' + String(path).split('?')[0] + ' - ' + detail).slice(0, 250), false);
+  queueStatus((code + ' - ' + method + ' ' + String(path).split('?')[0] + ' - ' + detail).slice(0, 250));
 }
 
 async function api(method, path, body) {
@@ -294,12 +287,11 @@ async function api(method, path, body) {
   if (r.status === 401 || r.status === 440) { logout(true); throw new Error('expired'); }
   if (!r.ok) {
     let m = ''; try { m = (await r.json()).message; } catch (e) {}
-    /* 400 / 404 / 422 are normal "validation / not found" answers - the API is working */
-    if ([400, 404, 422].includes(r.status)) reportOk();
-    else reportFail(method, path, 'HTTP ' + r.status + (m ? ' - ' + m : ''));
+    /* every error status (400, 422, 500 ...) is written to the field; only 404 (e.g. order not found) is ignored */
+    if (r.status !== 404) reportFail(method, path, 'HTTP ' + r.status + (m ? ' - ' + m : ''));
     throw new Error(m || 'HTTP ' + r.status);
   }
-  try { const j = await r.json(); reportOk(); return j; }
+  try { return await r.json(); }
   catch (e) { reportFail(method, path, 'Invalid JSON response'); throw e; }
 }
 const bad = (id, on) => $(id).closest('.f').classList.toggle('bad', on);
@@ -325,7 +317,7 @@ async function login() {
   try {
     const r = await fetch(CFG.BASE_URL + '/api/crm/checkIfUserLogin?apiKey=' + encodeURIComponent(CFG.API_KEY), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ UserName: u, Password: p })
-    }).then(r => { if (r.status >= 500) reportFail('POST', '/api/crm/checkIfUserLogin', 'HTTP ' + r.status); else reportOk(); return r.json(); });
+    }).then(r => { if (r.status >= 500) reportFail('POST', '/api/crm/checkIfUserLogin', 'HTTP ' + r.status); return r.json(); });
     const t = r?.userDetails?.access_token;
     if (r.status && t) {
       const ud = r.userDetails; token = t; user = u;
