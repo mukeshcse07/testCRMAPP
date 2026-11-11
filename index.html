@@ -223,23 +223,31 @@ const STATUS_FIELD = 'CRM API Failure Alert';
 const STATUS_KEY = 's21';
 
 function statusKey() {
-  let key = '';
-  walk(YC.raw, o => { if (!key && !Array.isArray(o) && typeof o.name === 'string' && typeof o.key === 'string' && nk(o.name) === nk(STATUS_FIELD)) key = o.key; });
-  return key || STATUS_KEY;
+  const d = cfDefs().find(x => x && x.name && nk(x.name) === nk(STATUS_FIELD));
+  return (d && d.key) || STATUS_KEY;
 }
 
 let apiOk = null, statusQ = Promise.resolve();
 
-/* writes a ready-made string into the ticket custom field */
+/* writes a ready-made string into the ticket custom field.
+   It first WAITS for the YApps SDK + ticket field definitions (yReady): the first API calls finish before the
+   SDK is ready, so without this wait the write was silently dropped (and the field key could be guessed wrong). */
 async function setApiStatus(value) {
+  try { await yReady; } catch (e) {}
   const y = window.yApp;
-  if (!y || typeof y.updateTicketCF !== 'function') return false;
-  const key = statusKey();
-  try {
-    await y.updateTicketCF({ [key]: String(value).slice(0, 250) });
-    console.log('[YApps] CRM API Failure Alert updated:', key, value);
-    return true;
-  } catch (e) { console.warn('[YApps] updateTicketCF failed', e); return false; }
+  if (!y || typeof y.updateTicketCF !== 'function') { console.warn('[YApps] updateTicketCF not available - status NOT written:', value); return false; }
+  const key = statusKey(), text = String(value).slice(0, 250);
+  for (let i = 1; i <= 3; i++) {
+    try {
+      await y.updateTicketCF({ [key]: text });
+      console.log('[YApps] CRM API Failure Alert updated:', key, text);
+      return true;
+    } catch (e) {
+      console.warn('[YApps] updateTicketCF failed (try ' + i + ')', e);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  return false;
 }
 /* calls are queued so a slow write never overtakes a newer one */
 function queueStatus(value, ok) {
@@ -365,49 +373,90 @@ function dig(o, keys, d = 5) {
    ticketDetails.customFields = { s19: "810281", ... }.  Read key s19 first; if it is empty,
    also try a custom field whose NAME is "Agent ID". */
 const AGENT_ID_KEY = 's19';
+/* Custom-field helpers: definitions = [{name,key}], values = { key: value }.
+   Works with the ask('ask_ticket_cf_info') shape AND a flat getTicketCF() answer. */
+function cfDefs() {
+  const d = [];
+  (YC.raw || []).forEach(r => { if (r && Array.isArray(r.customFields)) d.push(...r.customFields); });
+  return d;
+}
+function cfValues() {
+  const v = {};
+  (YC.raw || []).forEach(r => {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return;
+    const a = r.ticketDetails && r.ticketDetails.customFields;
+    if (a && typeof a === 'object' && !Array.isArray(a)) Object.assign(v, a);
+    if (r.customFields && typeof r.customFields === 'object' && !Array.isArray(r.customFields)) Object.assign(v, r.customFields);
+    if (!r.ticketDetails && !Array.isArray(r.customFields)) Object.assign(v, r);
+  });
+  return v;
+}
+/* Agent ID: key s19 first, then the field named "CRM LuLu Agent ID", then "Agent ID" */
 function agentIdFromCF() {
-  for (const r of (YC.raw || [])) {
-    const vals = r && r.ticketDetails && r.ticketDetails.customFields;
-    if (!vals || typeof vals !== 'object') continue;
-    let v = vals[AGENT_ID_KEY];
-    if (v == null || v === '') {
-      const d = Array.isArray(r.customFields) && r.customFields.find(x => x && x.name && nk(x.name) === 'agentid');
-      if (d) v = vals[d.key];
-    }
-    const t = str(pickVal(v) ?? v).trim();
+  const vals = cfValues(), defs = cfDefs();
+  const byName = n => { const d = defs.find(x => x && x.name && nk(x.name) === n); return d ? vals[d.key] : undefined; };
+  for (const v of [vals[AGENT_ID_KEY], byName('crmluluagentid'), byName('agentid')]) {
+    const t = String(flat(v)[0] || '').trim();
     if (t) return t;
   }
   return '';
 }
+/* prints every custom field (name / key / value) so you can see exactly what Yellow.ai sent */
+function logCF() {
+  try {
+    const vals = cfValues();
+    console.table(cfDefs().map(d => ({ name: d.name, key: d.key, value: JSON.stringify(vals[d.key] ?? '') })));
+  } catch (e) {}
+}
 
+let lastPull = 0;
+async function pullYellow() {
+  const y = window.yApp;
+  if (!y) return false;
+  const un = r => r && (r.eventResponse && r.eventResponse.eventData || r.data) || r;
+  const T = p => Promise.race([Promise.resolve(p), new Promise(r => setTimeout(() => r(null), 6000))]);
+  const R = await Promise.allSettled([T(y.getTicket && y.getTicket()), T(y.getAgent && y.getAgent()), T(y.ask && y.ask('ask_ticket_cf_info')), T(y.getTicketCF && y.getTicketCF())]);
+  const v = p => p.status === 'fulfilled' ? un(p.value) : null;
+  const tk = v(R[0]), ag = v(R[1]), ask = v(R[2]), cf = v(R[3]);
+  console.log('[YApps] ticket / agent / ask / customFields:', tk, ag, ask, cf);
+  YC.raw = [ask, cf];
+  YC.ticketId = str(dig(tk, ['ticketid', 'ticketnumber', 'displayid']) ?? dig(ask, ['ticketid']) ?? dig(tk, ['id']));
+  YC.agentId = str(dig(ag, ['agentid', 'userid', 'uid', 'employeeid', 'id']));
+  const fn = dig(ag, ['firstname']), ln = dig(ag, ['lastname']);
+  YC.agentName = str(dig(ag, ['displayname', 'fullname', 'agentname', 'name']) || [fn, ln].filter(Boolean).join(' '));
+  YC.agentEmail = str(dig(ag, ['email', 'emailid', 'agentemail']));
+  /* fallback: agent details are also inside ticketDetails of the ask() response */
+  const td = (ask && ask.ticketDetails) || (cf && cf.ticketDetails) || null;
+  if (!YC.agentName && td && td.agentName) YC.agentName = str(td.agentName);
+  if (!YC.agentEmail && td && td.agentEmail) YC.agentEmail = str(td.agentEmail);
+  AGENT_ID = agentIdFromCF();
+  if (!AGENT_ID) console.warn('[AgentID] not found in ticket custom fields (key ' + AGENT_ID_KEY + ' / "CRM LuLu Agent ID" / "Agent ID")');
+  agent.id = AGENT_ID;
+  try { localStorage.setItem('crmAgent', JSON.stringify(agent)); } catch (e) {}
+  logCF();
+  return true;
+}
 async function initYellow() {
   const t0 = Date.now();
   while (!window.yApp && !window.yAppFailed && Date.now() - t0 < 5000) await new Promise(r => setTimeout(r, 100));
-  const y = window.yApp;
-  if (y) {
-    const un = r => r && (r.eventResponse && r.eventResponse.eventData || r.data) || r;
-    const T = p => Promise.race([Promise.resolve(p), new Promise(r => setTimeout(() => r(null), 6000))]);
-    const R = await Promise.allSettled([T(y.getTicket && y.getTicket()), T(y.getAgent && y.getAgent()), T(y.ask && y.ask('ask_ticket_cf_info')), T(y.getTicketCF && y.getTicketCF())]);
-    const v = p => p.status === 'fulfilled' ? un(p.value) : null;
-    const tk = v(R[0]), ag = v(R[1]), ask = v(R[2]), cf = v(R[3]);
-    console.log('[YApps] ticket / agent / ask / customFields:', tk, ag, ask, cf);
-    YC.raw = [ask, cf];
-    YC.ticketId = str(dig(tk, ['ticketid', 'ticketnumber', 'displayid']) ?? dig(ask, ['ticketid']) ?? dig(tk, ['id']));
-    YC.agentId = str(dig(ag, ['agentid', 'userid', 'uid', 'employeeid', 'id']));
-    const fn = dig(ag, ['firstname']), ln = dig(ag, ['lastname']);
-    YC.agentName = str(dig(ag, ['displayname', 'fullname', 'agentname', 'name']) || [fn, ln].filter(Boolean).join(' '));
-    YC.agentEmail = str(dig(ag, ['email', 'emailid', 'agentemail']));
-    /* fallback: agent details are also inside ticketDetails of the ask() response */
-    const td = (ask && ask.ticketDetails) || (cf && cf.ticketDetails) || null;
-    if (!YC.agentName && td && td.agentName) YC.agentName = str(td.agentName);
-    if (!YC.agentEmail && td && td.agentEmail) YC.agentEmail = str(td.agentEmail);
-  }
-  AGENT_ID = agentIdFromCF();
-  if (!AGENT_ID) console.warn('[AgentID] not found in ticket custom fields (key ' + AGENT_ID_KEY + ')');
-  agent.id = AGENT_ID;
-  try { localStorage.setItem('crmAgent', JSON.stringify(agent)); } catch (e) {}
+  await pullYellow();
+  lastPull = Date.now();
   renderCtx();
 }
+/* The sidebar app can stay open while the agent switches tickets: re-read the ticket when the agent comes back to it */
+async function refreshYellow() {
+  if (!token || !window.yApp || Date.now() - lastPull < 4000) return;
+  lastPull = Date.now();
+  const prev = YC.ticketId;
+  await pullYellow(); renderCtx();
+  if (YC.ticketId && prev && YC.ticketId !== prev) {
+    resetForm(); viewId = justRegistered = ''; viewList = []; lastReg = null;
+    if ($('p-view').classList.contains('on')) loadView();
+    applyAutofill();
+  } else if (!$('orderNo').value.trim() && !$('desc').value.trim()) applyAutofill();
+}
+window.addEventListener('focus', refreshYellow);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshYellow(); });
 function renderCtx() {
   $('tId').textContent = YC.ticketId || '—';
   $('aId').textContent = AGENT_ID || '—';
@@ -447,11 +496,10 @@ function walk(o, fn, d = 10) {
   fn(o);
   for (const k of Object.keys(o)) walk(o[k], fn, d - 1);
 }
-function pkgByKey(raw) {
-  let key = '', val = '';
-  walk(raw, o => { if (!key && !Array.isArray(o) && typeof o.name === 'string' && typeof o.key === 'string' && isPkgName(o.name)) key = o.key; });
-  if (key) walk(raw, o => { if (!val && !Array.isArray(o) && Object.prototype.hasOwnProperty.call(o, key)) val = pickVal(o[key]); });
-  return { key, val };
+function pkgByKey() {
+  const d = cfDefs().find(x => x && typeof x.name === 'string' && isPkgName(x.name));
+  const key = d ? d.key : '';
+  return { key, val: key ? String(flat(cfValues()[key])[0] || '').trim() : '' };
 }
 
 /* ---- Custom fields -> Category / Type / Sub type (only when the name matches) ----
@@ -459,11 +507,8 @@ function pkgByKey(raw) {
    Every value is compared (case/space/symbol-insensitive) with the CRM names level by level.
    If nothing matches, the dropdowns are left as they are (empty). */
 function cfMap() {
-  const m = {};
-  (YC.raw || []).forEach(r => {
-    const defs = r && r.customFields, vals = r && r.ticketDetails && r.ticketDetails.customFields;
-    if (Array.isArray(defs) && vals && typeof vals === 'object') defs.forEach(d => { if (d && d.name) m[nk(d.name)] = vals[d.key]; });
-  });
+  const m = {}, vals = cfValues();
+  cfDefs().forEach(d => { if (d && d.name) m[nk(d.name)] = vals[d.key]; });
   return m;
 }
 function flat(v, out = [], d = 0) {
