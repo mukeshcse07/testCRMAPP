@@ -229,17 +229,31 @@ function statusKey() {
 
 let apiOk = null, statusQ = Promise.resolve();
 
+/* YApps SDK v1.0.0 only has ask() / update() / registerControl() - there is NO updateTicketCF().
+   Newer SDKs may have it, so use it when present, otherwise send the "update_custom_fields" event. */
+async function writeCF(y, obj) {
+  if (typeof y.updateTicketCF === 'function') return y.updateTicketCF(obj);
+  const r = await Promise.race([
+    y.update('update_custom_fields', obj),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('no response from Yellow.ai (timeout)')), 8000))
+  ]);
+  console.log('[YApps] update_custom_fields response:', r);
+  const er = r && r.eventResponse;
+  if (er && (er.error || er.status === 'failed' || er.success === false)) throw new Error(JSON.stringify(er).slice(0, 200));
+  return r;
+}
+
 /* writes a ready-made string into the ticket custom field.
    It first WAITS for the YApps SDK + ticket field definitions (yReady): the first API calls finish before the
    SDK is ready, so without this wait the write was silently dropped (and the field key could be guessed wrong). */
 async function setApiStatus(value) {
   try { await yReady; } catch (e) {}
   const y = window.yApp;
-  if (!y || typeof y.updateTicketCF !== 'function') { console.warn('[YApps] updateTicketCF not available - status NOT written:', value); return false; }
+  if (!y || (typeof y.updateTicketCF !== 'function' && typeof y.update !== 'function')) { console.warn('[YApps] SDK not ready / has no update method - status NOT written:', value, y && Object.getOwnPropertyNames(Object.getPrototypeOf(y))); return false; }
   const key = statusKey(), text = String(value).slice(0, 250);
   for (let i = 1; i <= 3; i++) {
     try {
-      await y.updateTicketCF({ [key]: text });
+      await writeCF(y, { [key]: text });
       console.log('[YApps] CRM API Failure Alert updated:', key, text);
       return true;
     } catch (e) {
